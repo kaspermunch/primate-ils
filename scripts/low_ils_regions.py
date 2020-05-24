@@ -21,4 +21,4 @@ df = (df
         .drop(columns=['segment', 'is_low'])
     )
 
-df.to_hdf(low_ils_output_file_name, 'df', mode='w', format='table')
+df.to_csv(low_ils_output_file_name)

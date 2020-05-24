@@ -40,7 +40,9 @@ _, *input_files, output_file = sys.argv
 
 df_list = []
 for input_file in input_files:
-    df = pd.read_hdf(input_file)
+    df_list.append(pd.read_hdf(input_file))
 
-optimize_dataframe((pd.concat(df_list))).to_hdf(output_file, 'df', format='table', mode='w')
+#df_list = [pd.read_hdf(f) for f in input_files]
+
+optimize_dataframe((pd.concat(df_list)), down_int='unsigned').to_hdf(output_file, 'df', format='table', mode='w')
 
