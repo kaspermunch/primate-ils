@@ -8,13 +8,20 @@ sp1, sp2, sp3, outgr, _, chrom = os.path.splitext(os.path.basename(input_file_na
 
 analysis = '_'.join([sp1, sp2, sp3, outgr])
 df = pd.read_hdf(input_file_name)
+
+# remove coordinates that are undefined in human
 df = df.loc[df.Homo_sapiens != -1]
+
+# find MAP state
 df['state'] = df[['V0', 'V1', 'V2', 'V3']].idxmax(axis=1)
-df['segment'] = (df.state != df.state.shift()).cumsum()
+
+# label each pos with the segment it belongs to
+df['segment'] = ((df.state != df.state.shift()) | (df.Homo_sapiens - df.Homo_sapiens.shift() != 1)).cumsum()
 
 def segment_coordinates(x):
     return pd.Series(dict(start=x.Homo_sapiens.min(), end=x.Homo_sapiens.max()))
 
+# find min and max of postions in segment
 df = df.groupby(['segment', 'state']).apply(segment_coordinates).reset_index()
 
 df.drop(columns=['segment'], inplace=True)

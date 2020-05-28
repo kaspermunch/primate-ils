@@ -44,5 +44,5 @@ for input_file in input_files:
 
 #df_list = [pd.read_hdf(f) for f in input_files]
 
-optimize_dataframe((pd.concat(df_list)), down_int='unsigned').to_hdf(output_file, 'df', format='table', mode='w')
+optimize_dataframe(pd.concat(df_list)).to_hdf(output_file, 'df', format='table', mode='w')
 

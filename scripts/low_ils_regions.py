@@ -21,4 +21,4 @@ df = (df
         .drop(columns=['segment', 'is_low'])
     )
 
-df.to_csv(low_ils_output_file_name)
+df.to_csv(low_ils_output_file_name, index=False)
