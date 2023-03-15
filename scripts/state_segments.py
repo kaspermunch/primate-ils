@@ -19,7 +19,7 @@ df['state'] = df[['V0', 'V1', 'V2', 'V3']].idxmax(axis=1)
 df['segment'] = ((df.state != df.state.shift()) | (df.Homo_sapiens - df.Homo_sapiens.shift() != 1)).cumsum()
 
 def segment_coordinates(x):
-    return pd.Series(dict(start=x.Homo_sapiens.min(), end=x.Homo_sapiens.max()))
+    return pd.Series(dict(start=x.Homo_sapiens.min(), end=x.Homo_sapiens.max()+1)) # plus one to make them ends exclusive
 
 # find min and max of postions in segment
 df = df.groupby(['segment', 'state']).apply(segment_coordinates).reset_index()

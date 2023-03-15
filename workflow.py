@@ -1,6 +1,7 @@
 
 
 import os, re
+from collections import defaultdict
 from pathlib import Path
 import pandas as pd
 
@@ -24,6 +25,15 @@ def modpath(p, parent=None, base=None, suffix=None):
         assert nsubs == 1, nsubs
     return new_path
 
+
+def groupby_chrom(files, pattern='chr_?([XYxy\d+]+)'):
+    groups = defaultdict(list)
+    for f in files:
+        chrom = re.search(pattern, os.path.splitext(os.path.basename(f))[0]).group(1)
+        groups[chrom].append(f)
+    return groups
+
+
 def state_segments(posterior_file):
 
     stepsdir = 'steps/state_segments'
@@ -40,6 +50,25 @@ def state_segments(posterior_file):
     python scripts/state_segments.py {posterior_file} {segment_file}
     """
     return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
+
+
+def trio_segments(state_segment_files, trio_segment_file):
+
+    # python scripts/trio_segments.py gene_trees.h5 steps/state_segments/*_chr_22.h5
+
+    stepsdir = 'steps/trio_segments'
+    if not os.path.exists(stepsdir):
+        os.makedirs(stepsdir)
+
+    inputs = {'state_segment_files': state_segment_files}
+    outputs = {'trio_segment_file': trio_segment_file}
+
+    options = {'memory': '40g', 'walltime': '01:00:00'} 
+    spec = f"""
+    python scripts/trio_segments.py {trio_segment_file} {state_segment_files}
+    """
+    return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
+
 
 def ils_in_windows(segment_file):
 
@@ -108,13 +137,24 @@ if not os.path.exists(stepsdir):
     os.makedirs(stepsdir)
 
 low_ils_region_files = collect(targets_low_ils_regions.outputs, ['low_ils_file'])['low_ils_files']
+
 merged_low_region_file = os.path.join(stepsdir, 'merged_low_ils_regions.csv')
+
 input_args = ' '.join(low_ils_region_files)
 gwf.target('merge_low_ils_regions', memory='36g', walltime='01:00:00', inputs=low_ils_region_files, outputs=[merged_low_region_file]) << f"""
 python scripts/merge_csv_files.py {input_args} {merged_low_region_file}
 """
 
+state_segment_files = collect(targets_state_segments.outputs, ['segment_file'])['segment_files']
 
 
 
-
+for chrom, input_files in groupby_chrom(state_segment_files).items():
+    output_file_name = f'XXXXXXXXXX'
+    gwf.target_from_template(
+    name=f'tree_segments_{chrom}',
+    trio_segments(
+        state_segment_files=input_files,
+        trio_segment_file=output_file_name
+    )
+)
