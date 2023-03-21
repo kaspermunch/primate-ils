@@ -106,55 +106,86 @@ def low_ils_regions(window_file):
     return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
 
 
+def workflow(working_dir=os.getcwd(), defaults={}, input_files=[]):
 
-gwf = Workflow(defaults={'account': 'Primategenomes'})
+    gwf = Workflow(working_dir=working_dir, defaults=defaults)
 
-data_dir = '/home/kmt/Primategenomes/data/final_tables'
-state_posterior_files = sorted(Path(data_dir).glob('**/*.HDF'))
+    # dict of targets as info for other workflows
+    targets = defaultdict(list)
 
-# compute state segments
-targets_state_segments = gwf.map(state_segments, state_posterior_files)
+    # compute state segments
+    targets_state_segments = gwf.map(state_segments, input_files)
+    targets['segments'] = targets_state_segments
 
-# compute ils in windows
-targets_ils_in_windows = gwf.map(ils_in_windows, targets_state_segments.outputs)
+    # compute ils in windows
+    targets_ils_in_windows = gwf.map(ils_in_windows, targets_state_segments.outputs)
+    targets['windows'] = targets_ils_in_windows
 
-stepsdir = 'steps/merge_ils_data'
-if not os.path.exists(stepsdir):
-    os.makedirs(stepsdir)
+    stepsdir = 'steps/merge_ils_data'
+    if not os.path.exists(stepsdir):
+        os.makedirs(stepsdir)
 
-ils_window_files = collect(targets_ils_in_windows.outputs, ['window_file'])['window_files']
-merged_ils_file = os.path.join(stepsdir, 'merged_ils_data.h5')
-input_args = ' '.join(ils_window_files)
-gwf.target('merge_ils_data', memory='36g', walltime='01:00:00', inputs=ils_window_files, outputs=[merged_ils_file]) << f"""
-python scripts/merge_hdf_files.py {input_args} {merged_ils_file}
-"""
+    ils_window_files = collect(targets_ils_in_windows.outputs, ['window_file'])['window_files']
+    merged_ils_file = os.path.join(stepsdir, 'merged_ils_data.h5')
+    input_args = ' '.join(ils_window_files)
+    target = gwf.target('merge_ils_data', memory='36g', walltime='01:00:00', inputs=ils_window_files, outputs=[merged_ils_file]) << f"""
+    python scripts/merge_hdf_files.py {input_args} {merged_ils_file}
+    """
+    targets['merge_ils_data'] = [merged_ils_file]
 
-# compute low ils regions
-targets_low_ils_regions = gwf.map(low_ils_regions, targets_ils_in_windows.outputs)
+    # compute low ils regions
+    targets_low_ils_regions = gwf.map(low_ils_regions, targets_ils_in_windows.outputs)
+    targets['regions'] = targets_low_ils_regions
 
-stepsdir = 'steps/merge_low_data'
-if not os.path.exists(stepsdir):
-    os.makedirs(stepsdir)
+    stepsdir = 'steps/merge_low_data'
+    if not os.path.exists(stepsdir):
+        os.makedirs(stepsdir)
 
-low_ils_region_files = collect(targets_low_ils_regions.outputs, ['low_ils_file'])['low_ils_files']
+    low_ils_region_files = collect(targets_low_ils_regions.outputs, ['low_ils_file'])['low_ils_files']
 
-merged_low_region_file = os.path.join(stepsdir, 'merged_low_ils_regions.csv')
+    merged_low_region_file = os.path.join(stepsdir, 'merged_low_ils_regions.csv')
 
-input_args = ' '.join(low_ils_region_files)
-gwf.target('merge_low_ils_regions', memory='36g', walltime='01:00:00', inputs=low_ils_region_files, outputs=[merged_low_region_file]) << f"""
-python scripts/merge_csv_files.py {input_args} {merged_low_region_file}
-"""
+    input_args = ' '.join(low_ils_region_files)
+    target = gwf.target('merge_low_ils_regions', memory='36g', walltime='01:00:00', inputs=low_ils_region_files, outputs=[merged_low_region_file]) << f"""
+    python scripts/merge_csv_files.py {input_args} {merged_low_region_file}
+    """
+    targets['merge_regions'] = targets_low_ils_regions
 
-state_segment_files = collect(targets_state_segments.outputs, ['segment_file'])['segment_files']
+    state_segment_files = collect(targets_state_segments.outputs, ['segment_file'])['segment_files']
 
 
 
-for chrom, input_files in groupby_chrom(state_segment_files).items():
-    output_file_name = f'XXXXXXXXXX'
-    gwf.target_from_template(
-    name=f'tree_segments_{chrom}',
-    trio_segments(
-        state_segment_files=input_files,
-        trio_segment_file=output_file_name
-    )
-)
+    # for chrom, input_files in groupby_chrom(state_segment_files).items():
+    #     output_file_name = f'XXXXXXXXXX'
+    #     gwf.target_from_template(
+    #     name=f'tree_segments_{chrom}',
+    #     trio_segments(
+    #         state_segment_files=input_files,
+    #         trio_segment_file=output_file_name
+    #     )
+    # )
+
+    return gwf, targets
+
+
+####################################################################
+# Use code like this to run this as standalone workflow: 
+####################################################################
+
+# data_dir = '/home/kmt/Primategenomes/data/final_tables'
+# state_posterior_files = sorted(Path(data_dir).glob('**/*.HDF'))
+# gwf, codeml_targets  = workflow(working_dir=working_dir, 
+#                                     defaults={'account': 'xy-drive'},
+#                                     input_files=state_posterior_files)
+
+####################################################################
+# Use code like this to run this as a submodule workflow: 
+####################################################################
+
+# data_dir = '/home/kmt/Primategenomes/data/final_tables'
+# state_posterior_files = sorted(Path(data_dir).glob('**/*.HDF'))
+# ils = importlib.import_module('primate-ils.workflow')
+# gwf, codeml_targets  = ils.workflow(working_dir=working_dir, 
+#                                     defaults={'account': 'xy-drive'},
+#                                     input_files=state_posterior_files)
+# globals()['ils'] = gwf
