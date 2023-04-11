@@ -37,8 +37,8 @@ def groupby_chrom(files, pattern='chr_?([XYxy\d+]+)'):
 def state_segments(posterior_file):
 
     stepsdir = 'steps/state_segments'
-    if not os.path.exists(stepsdir):
-        os.makedirs(stepsdir)
+    # if not os.path.exists(stepsdir):
+    #     os.makedirs(stepsdir)
 
     segment_file = modpath(posterior_file, parent=stepsdir, suffix='.h5')
 
@@ -47,6 +47,7 @@ def state_segments(posterior_file):
 
     options = {'memory': '40g', 'walltime': '01:00:00'} 
     spec = f"""
+    mkdir -p {stepsdir}    
     python scripts/state_segments.py {posterior_file} {segment_file}
     """
     return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
@@ -57,14 +58,15 @@ def trio_segments(state_segment_files, trio_segment_file):
     # python scripts/trio_segments.py gene_trees.h5 steps/state_segments/*_chr_22.h5
 
     stepsdir = 'steps/trio_segments'
-    if not os.path.exists(stepsdir):
-        os.makedirs(stepsdir)
+    # if not os.path.exists(stepsdir):
+    #     os.makedirs(stepsdir)
 
     inputs = {'state_segment_files': state_segment_files}
     outputs = {'trio_segment_file': trio_segment_file}
 
     options = {'memory': '40g', 'walltime': '01:00:00'} 
     spec = f"""
+    mkdir -p {stepsdir}    
     python scripts/trio_segments.py {trio_segment_file} {state_segment_files}
     """
     return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
@@ -73,8 +75,8 @@ def trio_segments(state_segment_files, trio_segment_file):
 def ils_in_windows(segment_file):
 
     stepsdir = 'steps/ils_in_windows'
-    if not os.path.exists(stepsdir):
-        os.makedirs(stepsdir)
+    # if not os.path.exists(stepsdir):
+    #     os.makedirs(stepsdir)
 
     window_file = modpath(segment_file, parent=stepsdir, suffix='.h5')
 
@@ -83,6 +85,7 @@ def ils_in_windows(segment_file):
 
     options = {'memory': '8g', 'walltime': '01:00:00'} 
     spec = f"""
+    mkdir -p {stepsdir}
     python scripts/ils_in_windows.py {segment_file} {window_file}
     """
     return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
@@ -91,8 +94,8 @@ def ils_in_windows(segment_file):
 def low_ils_regions(window_file):
 
     stepsdir = 'steps/low_ils_regions'
-    if not os.path.exists(stepsdir):
-        os.makedirs(stepsdir)
+    # if not os.path.exists(stepsdir):
+    #     os.makedirs(stepsdir)
 
     low_ils_file = modpath(window_file, parent=stepsdir, suffix='.csv')
 
@@ -101,6 +104,7 @@ def low_ils_regions(window_file):
 
     options = {'memory': '8g', 'walltime': '01:00:00'} 
     spec = f"""
+    mkdir -p {stepsdir}
     python scripts/low_ils_regions.py {window_file} {low_ils_file}
     """
     return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
@@ -122,13 +126,14 @@ def workflow(working_dir=os.getcwd(), defaults={}, input_files=[]):
     targets['windows'] = targets_ils_in_windows
 
     stepsdir = 'steps/merge_ils_data'
-    if not os.path.exists(stepsdir):
-        os.makedirs(stepsdir)
+    # if not os.path.exists(stepsdir):
+    #     os.makedirs(stepsdir)
 
     ils_window_files = collect(targets_ils_in_windows.outputs, ['window_file'])['window_files']
     merged_ils_file = os.path.join(stepsdir, 'merged_ils_data.h5')
     input_args = ' '.join(ils_window_files)
     target = gwf.target('merge_ils_data', memory='36g', walltime='01:00:00', inputs=ils_window_files, outputs=[merged_ils_file]) << f"""
+    mkdir -p {stepsdir}
     python scripts/merge_hdf_files.py {input_args} {merged_ils_file}
     """
     targets['merge_ils_data'] = [merged_ils_file]
@@ -138,8 +143,8 @@ def workflow(working_dir=os.getcwd(), defaults={}, input_files=[]):
     targets['regions'] = targets_low_ils_regions
 
     stepsdir = 'steps/merge_low_data'
-    if not os.path.exists(stepsdir):
-        os.makedirs(stepsdir)
+    # if not os.path.exists(stepsdir):
+    #     os.makedirs(stepsdir)
 
     low_ils_region_files = collect(targets_low_ils_regions.outputs, ['low_ils_file'])['low_ils_files']
 
@@ -147,6 +152,7 @@ def workflow(working_dir=os.getcwd(), defaults={}, input_files=[]):
 
     input_args = ' '.join(low_ils_region_files)
     target = gwf.target('merge_low_ils_regions', memory='36g', walltime='01:00:00', inputs=low_ils_region_files, outputs=[merged_low_region_file]) << f"""
+    mkdir -p {stepsdir}
     python scripts/merge_csv_files.py {input_args} {merged_low_region_file}
     """
     targets['merge_regions'] = targets_low_ils_regions
