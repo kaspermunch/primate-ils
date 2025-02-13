@@ -1,0 +1,24 @@
+name: primate-ils
+channels:
+  - defaults
+dependencies:
+  - jupyterlab
+  - pytables
+  - ipympl
+  - chromwindow
+  - scipy
+  - gwf=2.0
+  - notebook
+  - ipython
+  - statsmodels
+  - tqdm
+  - seaborn
+  - nodejs
+  - geneinfo
+  - ipyparallel
+  - git=2.40
+  - scikit-learn
+  - mpld3
+  - horizonplot
+  - genominterv
+prefix: /home/kmt/miniconda3/envs/primate-ils
